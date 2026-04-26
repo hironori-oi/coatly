@@ -33,7 +33,7 @@ import * as schema from '@/lib/db/schema';
 
 vi.mock('@/lib/db/client', () => ({
   get db() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return (globalThis as any).__TEST_EXPENSE_DB__;
   },
 }));
@@ -79,7 +79,7 @@ let realDb: ReturnType<typeof drizzle>;
 beforeAll(async () => {
   realClient = createClient({ url: ':memory:' });
   realDb = drizzle(realClient, { schema });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (globalThis as any).__TEST_EXPENSE_DB__ = realDb;
 
   await realClient.executeMultiple(`

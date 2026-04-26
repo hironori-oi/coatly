@@ -6,15 +6,17 @@ describe('computeFiscalYear', () => {
     // 4月以降 = 当年度
     expect(
       computeFiscalYear(
-        { fiscalYearStartMonth: null },
-        new Date('2026-04-26'),
+         
+        { fiscalYearStartMonth: null as any },
+        new Date(2026, 3, 26), // 2026-04-26 ローカル
       ),
     ).toBe(2026);
     // 3月以前 = 前年度
     expect(
       computeFiscalYear(
-        { fiscalYearStartMonth: null },
-        new Date('2026-03-15'),
+         
+        { fiscalYearStartMonth: null as any },
+        new Date(2026, 2, 15), // 2026-03-15 ローカル
       ),
     ).toBe(2025);
   });
