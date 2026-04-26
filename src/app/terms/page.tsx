@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 const LAST_UPDATED = '2026-04-26';
-const SUPPORT_EMAIL = 'support@coatly.example.jp';
+const SUPPORT_EMAIL = 'support@improver.jp';
 
 export default function TermsPage() {
   return (
