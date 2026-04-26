@@ -47,5 +47,5 @@ next-env.d.ts
 local.db
 test.db
 
-# drizzle migration meta（自動生成、必要な migration SQL のみ commit）
-/drizzle/meta/_journal.json
+# drizzle: meta は全て commit する（_journal.json は migrator runtime が必須、
+# *_snapshot.json は drizzle-kit generate の diff 計算に必要）

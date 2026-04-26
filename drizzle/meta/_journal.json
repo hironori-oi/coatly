@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1777159958181,
+      "tag": "0000_solid_the_call",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777161383685,
+      "tag": "0001_yielding_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777161703614,
+      "tag": "0002_free_silver_centurion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777200000000,
+      "tag": "0003_w2b_used_amount",
+      "breakpoints": true
+    }
+  ]
+}
