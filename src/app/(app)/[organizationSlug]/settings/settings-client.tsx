@@ -28,6 +28,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authClient } from '@/lib/auth/client';
 import { updateProfile } from '@/lib/actions/profile';
+import {
+  deleteAccount,
+  getAccountDeletePreflight,
+} from '@/lib/actions/account-delete';
 
 type Props = {
   initialName: string;
@@ -40,7 +44,7 @@ export function SettingsClient({ initialName, email }: Props) {
       <ProfileSection initialName={initialName} email={email} />
       <ThemeSection />
       <PasswordSection />
-      <DangerZone />
+      <DangerZone email={email} />
     </div>
   );
 }
@@ -292,20 +296,146 @@ function PasswordSection() {
   );
 }
 
-function DangerZone() {
+function DangerZone({ email }: { email: string }) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [confirmEmail, setConfirmEmail] = React.useState('');
+  const [pending, setPending] = React.useState(false);
+  const [feedback, setFeedback] = React.useState<
+    { type: 'ok' | 'error'; message: string } | null
+  >(null);
+  const [blockingOrgIds, setBlockingOrgIds] = React.useState<string[] | null>(
+    null,
+  );
+
+  // モーダルを開いた時点で sole-owner check を pre-fetch
+  const onOpen = async () => {
+    setOpen(true);
+    setFeedback(null);
+    setConfirmEmail('');
+    const r = await getAccountDeletePreflight();
+    if (r.ok) {
+      setBlockingOrgIds(r.blockingSoleOwnerOrgIds);
+    } else {
+      setFeedback({ type: 'error', message: r.error });
+    }
+  };
+
+  const onClose = () => {
+    if (pending) return;
+    setOpen(false);
+  };
+
+  const onConfirm = async () => {
+    if (pending) return;
+    setFeedback(null);
+    setPending(true);
+    const r = await deleteAccount({ confirmEmail });
+    setPending(false);
+    if (!r.ok) {
+      setFeedback({ type: 'error', message: r.error });
+      return;
+    }
+    // 成功 → /login へ
+    router.replace('/login?reason=deleted');
+  };
+
+  const blocking = blockingOrgIds && blockingOrgIds.length > 0;
+  const isMatch = confirmEmail.trim().toLowerCase() === email.toLowerCase();
+
   return (
     <Card className="border-danger/30">
       <CardContent className="space-y-3 p-6">
         <header>
           <h2 className="text-lg font-semibold text-danger">退会</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            アカウント削除は Phase 2 で対応予定です。退会をご希望の場合は
-            管理者までご連絡ください。
+            アカウントを削除します。領収書・申請履歴は法定保存期間（最長 7 年）
+            のあいだ運営者が保管しますが、ログインはできなくなります。
           </p>
         </header>
-        <Button variant="destructive" size="sm" disabled>
-          退会する（Phase 2）
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={onOpen}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          退会する
         </Button>
+
+        {open ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-delete-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={onClose}
+          >
+            <div
+              className="w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3
+                id="account-delete-title"
+                className="text-lg font-semibold text-danger"
+              >
+                本当に退会しますか？
+              </h3>
+              <p className="text-sm leading-7">
+                この操作は取り消せません。続行する場合は、ログイン中のメール
+                アドレス <strong>{email}</strong> を下に入力して確認してください。
+              </p>
+
+              {blocking ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger"
+                >
+                  あなたが唯一のオーナーとして在籍している組織が
+                  {' '}
+                  {blockingOrgIds!.length}
+                  {' '}
+                  件あります。先に他のメンバーへオーナー権限を移譲してから
+                  退会してください。
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-delete-email">メールアドレス</Label>
+                <Input
+                  id="confirm-delete-email"
+                  type="email"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  disabled={pending || !!blocking}
+                  autoComplete="off"
+                  placeholder={email}
+                />
+              </div>
+
+              <FeedbackBanner feedback={feedback} />
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClose}
+                  disabled={pending}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={onConfirm}
+                  disabled={pending || !isMatch || !!blocking}
+                >
+                  {pending ? '削除中…' : '退会する'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
