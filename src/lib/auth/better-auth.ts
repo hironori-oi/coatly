@@ -27,10 +27,48 @@ import { notifyInvitation, notifyMagicLink } from '@/lib/email/notify';
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ??
   process.env.BETTER_AUTH_URL ??
-  'http://localhost:3000';
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000');
+
+/**
+ * Better Auth の Origin header 検証で許可するオリジン一覧。
+ *
+ * 既定だと baseURL のみが許可されるが、Vercel では:
+ *  - production alias (coatly-mu.vercel.app)
+ *  - 各 deployment URL (coatly-mu-{hash}.vercel.app)
+ *  - branch URL (coatly-mu-git-{branch}-{team}.vercel.app)
+ * の 3 種類が混在し、redeploy 直後やプレビューアクセスで Origin が
+ * baseURL と一致しないため "Invalid origin" で弾かれる事故が起きる。
+ *
+ * Vercel が自動で注入する以下の env vars を全部 trustedOrigins に
+ * 加えることで自己回復させる:
+ *  - VERCEL_URL                          : 現在の deployment URL
+ *  - VERCEL_BRANCH_URL                   : git branch alias
+ *  - VERCEL_PROJECT_PRODUCTION_URL       : production alias
+ *
+ * ローカル開発と production 既知 alias は明示で固定する。
+ */
+const TRUSTED_ORIGINS = Array.from(
+  new Set(
+    [
+      APP_URL,
+      'http://localhost:3000',
+      'https://coatly-mu.vercel.app',
+      'https://coatly.vercel.app',
+      process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+      process.env.VERCEL_BRANCH_URL && `https://${process.env.VERCEL_BRANCH_URL}`,
+      process.env.VERCEL_PROJECT_PRODUCTION_URL &&
+        `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
+    ].filter((v): v is string => Boolean(v)),
+  ),
+);
 
 export const auth = betterAuth({
   baseURL: APP_URL,
+  trustedOrigins: TRUSTED_ORIGINS,
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: 'sqlite',
