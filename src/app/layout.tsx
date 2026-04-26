@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
@@ -29,6 +31,11 @@ export default function RootLayout({
     <html lang="ja" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <ThemeProvider>{children}</ThemeProvider>
+        {/* Vercel Analytics / Speed Insights:
+            production のみ自動で動作する（dev では no-op）。
+            個人情報は送信せず、Web Vitals と pageview のみ計測。 */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
