@@ -18,6 +18,7 @@
     "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "db:seed:e2e": "tsx --env-file-if-exists=.env.local scripts/seed-e2e.ts",
     "db:seed:managers": "tsx --env-file-if-exists=.env.local scripts/seed-managers.ts",
+    "db:cleanup-e2e": "tsx --env-file-if-exists=.env.local scripts/cleanup-e2e-users.ts",
     "email:dev": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails --out emails/build"
   },
