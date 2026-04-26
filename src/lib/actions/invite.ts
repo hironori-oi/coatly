@@ -42,6 +42,7 @@ import {
   ValidationError,
 } from '@/lib/errors';
 import { notifyInvitation } from '@/lib/email/notify';
+import { sendInvitationEmail } from '@/lib/email/resend';
 import type { ActionErrorCode, ActionResult } from './expense';
 
 const APP_URL =
@@ -186,15 +187,20 @@ export async function inviteMember(
       const inviterName =
         ctx.user.name?.trim() || ctx.user.email || 'Coatly Admin';
       const inviteUrl = `${APP_URL}/invite/${invitationId}?email=${encodeURIComponent(data.email)}`;
+      // W3-A polish: 主送信は sendInvitationEmail（HTML + plain text）。
+      // notifyInvitation は型互換のため残置（過去の他経路から参照される可能性）。
       try {
-        await notifyInvitation({
-          email: data.email,
-          organizationName: orgRows[0].name,
-          inviterName,
+        const r = await sendInvitationEmail({
+          to: data.email,
+          orgName: orgRows[0].name,
           inviteUrl,
-          expiresAt,
-          role: data.role,
+          inviterName,
+          expiresAtLabel: expiresAt.toLocaleString('ja-JP'),
+          roleLabel: data.role,
         });
+        if (!r.ok) {
+          console.warn('[inviteMember] sendInvitationEmail not ok', r.error);
+        }
       } catch (mailErr) {
         console.warn('[inviteMember] mail failed', mailErr);
       }
@@ -206,6 +212,10 @@ export async function inviteMember(
     return toError(e);
   }
 }
+
+// notifyInvitation は他経路（Better Auth plugin の sendInvitationEmail callback 等）
+// で使われているため import は残す。
+void notifyInvitation;
 
 /**
  * 既存メンバーの組織内ロールを変更する。
@@ -435,14 +445,20 @@ export async function resendInvitation(
         ctx.user.name?.trim() || ctx.user.email || 'Coatly Admin';
       const inviteUrl = `${APP_URL}/invite/${data.invitationId}?email=${encodeURIComponent(existing[0].email)}`;
       try {
-        await notifyInvitation({
-          email: existing[0].email,
-          organizationName: orgRows[0].name,
-          inviterName,
+        const r = await sendInvitationEmail({
+          to: existing[0].email,
+          orgName: orgRows[0].name,
           inviteUrl,
-          expiresAt: newExpiresAt,
-          role: existing[0].role,
+          inviterName,
+          expiresAtLabel: newExpiresAt.toLocaleString('ja-JP'),
+          roleLabel: existing[0].role,
         });
+        if (!r.ok) {
+          console.warn(
+            '[resendInvitation] sendInvitationEmail not ok',
+            r.error,
+          );
+        }
       } catch (mailErr) {
         console.warn('[resendInvitation] mail failed', mailErr);
       }

@@ -54,6 +54,15 @@ vi.mock('@/lib/email/notify', () => ({
   notifyInvitation: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@/lib/email/resend', () => ({
+  sendInvitationEmail: vi
+    .fn()
+    .mockResolvedValue({ ok: true, id: 'em_mock_id' }),
+  // 他の export も触られるかもしれないので保険
+  sendEmail: vi.fn().mockResolvedValue({ ok: true, id: null }),
+  getAppUrl: () => 'http://localhost:3000',
+}));
+
 const mockGetSession = vi.fn<() => Promise<{ user?: { id: string } } | null>>();
 vi.mock('@/lib/auth/better-auth', () => ({
   auth: {

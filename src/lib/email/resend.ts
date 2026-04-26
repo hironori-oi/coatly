@@ -123,3 +123,97 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 export function getAppUrl(): string {
   return APP_URL;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// 招待メール（W3-A polish: 高レベル convenience API）
+// ─────────────────────────────────────────────────────────────────
+
+export type SendInvitationEmailInput = {
+  to: string;
+  orgName: string;
+  inviteUrl: string;
+  inviterName: string;
+  /** 表示名（任意）。未指定時は to をそのまま使う */
+  recipientName?: string;
+  /** ja-JP 表示の有効期限（任意） */
+  expiresAtLabel?: string;
+  /** ロール表示（任意、既定: 'member'） */
+  roleLabel?: string;
+};
+
+/**
+ * 招待メールを送る（HTML + Plain text 両方）。
+ *
+ * - HTML: `InvitationEmail`（react-email/components）から render
+ * - Plain text: 同じ React tree を `render(..., { plainText: true })` で生成
+ * - Resend SDK 未設定時は console fallback（dev / build 安全）
+ *
+ * 仕様: dev-technical-spec-v2.md §3.4 / DEC-032（From: noreply@improver.jp,
+ * Reply-To: support@improver.jp）。
+ */
+export async function sendInvitationEmail(
+  input: SendInvitationEmailInput,
+): Promise<SendEmailResult> {
+  const { InvitationEmail } = await import('./templates/invitation');
+  const expiresLabel =
+    input.expiresAtLabel ??
+    new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+  const reactNode = InvitationEmail({
+    recipientName: input.recipientName,
+    recipientEmail: input.to,
+    organizationName: input.orgName,
+    inviterName: input.inviterName,
+    inviteUrl: input.inviteUrl,
+    expiresAtLabel: expiresLabel,
+    roleLabel: input.roleLabel ?? 'member',
+  });
+
+  const client = getClient();
+  const from = FROM_DEFAULT;
+  const subject = `${input.orgName} から Coatly への招待`;
+
+  // Plain text fallback（受信者のメールクライアントが HTML を表示できない場合の保険）
+  const text = await render(reactNode, { plainText: true });
+
+  if (!client) {
+    try {
+      const html = await render(reactNode);
+      console.warn(
+        `[email:fallback] from=${from} to=${JSON.stringify(input.to)} subject=${JSON.stringify(subject)}\n--- html ---\n${html}\n--- text ---\n${text}\n--- end ---`,
+      );
+      return { ok: true, id: null };
+    } catch (e) {
+      console.warn('[email:fallback] render failed', e);
+      return { ok: false, error: 'render_failed' };
+    }
+  }
+
+  try {
+    const result = await client.emails.send({
+      from,
+      to: input.to,
+      subject,
+      react: reactNode,
+      text,
+      replyTo: REPLY_TO_DEFAULT,
+    });
+    if (result.error) {
+      console.warn('[email:invitation] resend error', result.error);
+      return { ok: false, error: result.error.message ?? 'resend_error' };
+    }
+    return { ok: true, id: result.data?.id ?? null };
+  } catch (e) {
+    console.warn('[email:invitation] send failed', e);
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'unknown_error',
+    };
+  }
+}
