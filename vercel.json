@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["hnd1"],
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/upload-url/route.ts": {
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "src/app/api/health/route.ts": {
+      "memory": 128,
+      "maxDuration": 5
+    },
+    "src/app/api/auth/[...all]/route.ts": {
+      "memory": 512,
+      "maxDuration": 15
+    }
+  },
+  "github": {
+    "silent": true
+  }
+}

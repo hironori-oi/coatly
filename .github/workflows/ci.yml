@@ -1,0 +1,168 @@
+# Coatly CI
+#
+# 目的: Phase 1 品質ゲート C-04 を満たす最小限の CI。
+#  - typecheck-build: TypeScript 型検査 + Next 16 ビルド（ダミー秘密で）
+#  - e2e-authorization: 認可漏洩 7 ケースの E2E（local libsql ファイル）
+#
+# `pnpm lint` は DEC-029 の方針で warning 残存中のため CI 必須化していない。
+# Phase 2 で no-restricted-imports を error 化と同時に必須化予定。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # DEC-028: 大きな Cookie ヘッダ対策で本番 / dev / test 共通の Node オプション
+  NODE_OPTIONS: --max-http-header-size=32768
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1. typecheck + build
+  # ---------------------------------------------------------------
+  typecheck-build:
+    name: typecheck + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # build を通すための CI 用ダミー値（実環境秘密は使用しない）
+      DATABASE_URL: file:./local.db
+      DATABASE_AUTH_TOKEN: dummy
+      TURSO_DATABASE_URL: file:./local.db
+      TURSO_AUTH_TOKEN: dummy
+      BETTER_AUTH_SECRET: ci-dummy-secret-32chars-min-required-here
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      R2_ACCOUNT_ID: dummy
+      R2_ACCESS_KEY_ID: dummy
+      R2_SECRET_ACCESS_KEY: dummy
+      R2_BUCKET_NAME: coatly-receipts-ci
+      RESEND_API_KEY: re_dummy_ci
+      EMAIL_FROM: "Coatly <noreply@example.test>"
+      EMAIL_REPLY_TO: "support@example.test"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build (Next.js)
+        run: pnpm build
+
+  # ---------------------------------------------------------------
+  # 2. E2E: 認可漏洩 7 ケース（local libsql + seed）
+  # ---------------------------------------------------------------
+  e2e-authorization:
+    name: e2e (authorization)
+    needs: typecheck-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # E2E は file libsql で完結させる（本番 Turso には触らない）
+      DATABASE_URL: file:./test.db
+      TURSO_DATABASE_URL: file:./test.db
+      TURSO_AUTH_TOKEN: ""
+      DATABASE_AUTH_TOKEN: ""
+      BETTER_AUTH_SECRET: ci-dummy-secret-32chars-min-required-here
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      R2_ACCOUNT_ID: dummy
+      R2_ACCESS_KEY_ID: dummy
+      R2_SECRET_ACCESS_KEY: dummy
+      R2_BUCKET_NAME: coatly-receipts-ci
+      RESEND_API_KEY: re_dummy_ci
+      EMAIL_FROM: "Coatly <noreply@example.test>"
+      EMAIL_REPLY_TO: "support@example.test"
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Migrate database (drizzle)
+        run: pnpm db:migrate
+
+      - name: Seed base data
+        run: pnpm db:seed
+
+      - name: Seed E2E fixtures
+        run: pnpm db:seed:e2e
+
+      - name: Build (Next.js, for `next start`)
+        run: pnpm build
+
+      - name: Start app server
+        run: pnpm start &
+        env:
+          PORT: "3000"
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health > /dev/null; then
+              echo "server is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to start" >&2
+          exit 1
+
+      - name: Run authorization E2E
+        run: pnpm exec playwright test tests/e2e/authorization.spec.ts
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14

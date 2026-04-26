@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+/*
+ * Coatly デザイントークン（Quiet Luxury Sport / design-concept.md §2）
+ *
+ * Tailwind v4 では @theme でトークンを定義すると、対応する Tailwind
+ * ユーティリティクラス（例: bg-court-green, text-ink）が自動生成される。
+ */
+@theme {
+  /* Brand colors */
+  --color-ink: #0A0A0B;
+  --color-paper: #FAFAF7;
+  --color-court-green: #1F6B4A;
+  --color-stone: #E7E5DF;
+  --color-stone-100: #E7E5DF;
+  --color-hairline: #D8D6CF;
+  --color-amber: #B8741A;
+  --color-danger: #A83232;
+  --color-success: #2F7A52;
+
+  /* shadcn/ui 互換 alias */
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-card: #FFFFFF;
+  --color-card-foreground: var(--color-ink);
+  --color-border: var(--color-hairline);
+  --color-ring: var(--color-court-green);
+  --color-primary: var(--color-ink);
+  --color-primary-foreground: var(--color-paper);
+  --color-accent: var(--color-court-green);
+  --color-accent-foreground: var(--color-paper);
+  --color-muted-foreground: #6B6B6B;
+
+  /* Radius */
+  --radius-card: 14px;
+  --radius-button: 8px;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-narrative: 600ms;
+  --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --easing-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Fonts */
+  --font-sans: "Geist Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-jp: "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-nums: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Choropleth 5 段濃淡（design-tokens.md §1.3 / Light） */
+  --color-chart-1: #E8F0EB;
+  --color-chart-2: #C5DDD0;
+  --color-chart-3: #7FB497;
+  --color-chart-4: #3F8762;
+  --color-chart-5: #1F6B4A;
+  --color-chart-overflow: #A83232;
+
+  /* Popover（Tooltip 等で使用） */
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: var(--color-ink);
+}
+
+/* Dark mode（コート照明感 / design-tokens.md §1.1 dark 列）*/
+.dark {
+  --color-background: #0C0E0D;
+  --color-foreground: #ECEAE3;
+  --color-card: #15181A;
+  --color-card-foreground: #ECEAE3;
+  --color-border: #262A2C;
+  --color-ring: #3FA677;
+  --color-primary: #ECEAE3;
+  --color-primary-foreground: #0C0E0D;
+  --color-accent: #3FA677;
+  --color-accent-foreground: #0C0E0D;
+  --color-muted-foreground: #9A9A95;
+  --color-stone-100: #1C2022;
+  --color-stone: #1C2022;
+  --color-hairline: #262A2C;
+
+  /* court-green は dark で明るめ（コート照明感） */
+  --color-court-green: #3FA677;
+
+  /* status colors（dark トーン: design-tokens.md §1.1） */
+  --color-success: #3FA677;
+  --color-amber: #D4923A;
+  --color-danger: #D87171;
+
+  /* Popover */
+  --color-popover: #15181A;
+  --color-popover-foreground: #ECEAE3;
+
+  /* Choropleth 5 段（design-tokens.md §1.3 / Dark） */
+  --color-chart-1: #1A2E25;
+  --color-chart-2: #244538;
+  --color-chart-3: #2F6049;
+  --color-chart-4: #3FA677;
+  --color-chart-5: #5BC494;
+  --color-chart-overflow: #D87171;
+}
+
+/* ベースリセット */
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* タビュラー数字（金額表示用） */
+.tabular,
+.font-nums {
+  font-feature-settings: "tnum", "ss01";
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* prefers-reduced-motion: reduce で全アニメ無効化 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* フォーカスリング統一 */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
