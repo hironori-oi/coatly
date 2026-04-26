@@ -59,13 +59,14 @@ export async function loginViaUI(page: Page, email: string): Promise<void> {
   await page.getByLabel('メールアドレス').fill(email);
   await page.getByLabel('パスワード').fill(E2E_PASSWORD);
   await page.getByRole('button', { name: /^ログイン$/ }).click();
-  // ダッシュボード遷移を待機 (root → /[org]/dashboard へ redirect)
-  // CI 上の cold start + dashboard SSR 初回が遅いことがあるため timeout を広げる。
-  // waitUntil: 'load' のままだと streaming 中の早期解決でタイミング差が出るため
-  // 明示的に load イベント完了まで待つ。
+  // ダッシュボード遷移を待機 (root → /[org]/dashboard へ redirect)。
+  // production build の cold start + dashboard SSR 初回が遅く、'load' イベント
+  // 完了を待つと dashboard 内の lazy chunk fetch / streaming 完結で 30s 超えする
+  // ことがある (C7 flake の主因)。URL 確定 = navigation commit を待てば認可
+  // テストの目的としては十分なので 'commit' に倒し、timeout も 60s まで広げる。
   await page.waitForURL(/\/dashboard$/, {
-    timeout: 30_000,
-    waitUntil: 'load',
+    timeout: 60_000,
+    waitUntil: 'commit',
   });
 }
 
