@@ -41,6 +41,11 @@ export async function proxy(req: NextRequest) {
     url.startsWith('/terms') ||
     url.startsWith('/api/auth') ||
     url.startsWith('/api/health') ||
+    // Sentry tunnel route (next.config.ts: withSentryConfig.tunnelRoute = '/monitoring')。
+    // ブラウザ Sentry SDK が POST /monitoring で event を tunnel するため、
+    // 認証ガードに巻き込むと 307 → /login (POST) で 405 になり、本番のエラー
+    // 計測が完全に止まる（W3-B 由来の事故、修正必須）。
+    url.startsWith('/monitoring') ||
     url.startsWith('/_next') ||
     url.startsWith('/favicon');
 
