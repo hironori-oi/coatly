@@ -311,7 +311,103 @@ describe('auth guards (integration)', () => {
     ).rejects.toMatchObject({ name: 'AuthError', status: 403 });
   });
 
-  // -- Phase 2 で本実装する追加ケース ---------------------------------
-  it.todo('requireExpenseAccess: read 拒否（visible group 外、自分の申請でもない）');
-  it.todo('requireExpenseAccess: write 拒否（owner でも manager でも admin でもない）');
+  // -- requireExpenseAccess: W3-A で追加 -------------------------------
+  describe('requireExpenseAccess', () => {
+    const EXPENSE_OKA = 'exp_oka_w3';
+    const EXPENSE_HIRO = 'exp_hiro_w3';
+
+    beforeAll(async () => {
+      // 岡山 group の expense（OKA member 投稿）と広島 group の expense（HIRO member 投稿）
+      const realDb = drizzle(realClient, { schema });
+      await realDb.insert(schema.expenses).values([
+        {
+          id: EXPENSE_OKA,
+          organizationId: ORG_A,
+          groupId: GROUP_A1,
+          userId: USER_MEMBER_A_OKA,
+          fiscalYear: 2026,
+          date: new Date('2026-04-10'),
+          description: 'oka expense',
+          amountJpy: 1000,
+          status: 'submitted',
+        },
+        {
+          id: EXPENSE_HIRO,
+          organizationId: ORG_A,
+          groupId: GROUP_A2,
+          userId: USER_MEMBER_A_HIRO,
+          fiscalYear: 2026,
+          date: new Date('2026-04-11'),
+          description: 'hiro expense',
+          amountJpy: 2000,
+          status: 'submitted',
+        },
+      ]);
+    });
+
+    it('throws notFound when expense does not exist', async () => {
+      // requireExpenseAccess は requireUser + requireOrganizationRole を呼ぶため
+      // mockResolvedValue で全 call に同じ session を返す
+      mockGetSession.mockResolvedValue({ user: { id: USER_OWNER_A } });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      await expect(
+        requireExpenseAccess('no_such_expense', 'read'),
+      ).rejects.toMatchObject({ name: 'NotFoundError' });
+    });
+
+    it('allows owner to read any expense in own org', async () => {
+      mockGetSession.mockResolvedValue({ user: { id: USER_OWNER_A } });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      const r = await requireExpenseAccess(EXPENSE_HIRO, 'read');
+      expect(r.expense.id).toBe(EXPENSE_HIRO);
+      expect(r.ctx.orgRole).toBe('owner');
+    });
+
+    it('allows submitter to read own expense (read mode)', async () => {
+      mockGetSession.mockResolvedValue({
+        user: { id: USER_MEMBER_A_OKA },
+      });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      const r = await requireExpenseAccess(EXPENSE_OKA, 'read');
+      expect(r.expense.id).toBe(EXPENSE_OKA);
+    });
+
+    it('rejects member reading expense from other group (read 403)', async () => {
+      // OKA member が HIRO group の expense を read 試行
+      mockGetSession.mockResolvedValue({
+        user: { id: USER_MEMBER_A_OKA },
+      });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      await expect(
+        requireExpenseAccess(EXPENSE_HIRO, 'read'),
+      ).rejects.toMatchObject({ name: 'AuthError', status: 403 });
+    });
+
+    it('rejects member writing other-user expense in same group (write 403)', async () => {
+      // HIRO member が OKA member の expense を write 試行
+      mockGetSession.mockResolvedValue({
+        user: { id: USER_MEMBER_A_HIRO },
+      });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      await expect(
+        requireExpenseAccess(EXPENSE_OKA, 'write'),
+      ).rejects.toMatchObject({ name: 'AuthError', status: 403 });
+    });
+
+    it('allows owner to write any expense in own org', async () => {
+      mockGetSession.mockResolvedValue({ user: { id: USER_OWNER_A } });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      const r = await requireExpenseAccess(EXPENSE_HIRO, 'write');
+      expect(r.expense.id).toBe(EXPENSE_HIRO);
+    });
+
+    it('allows submitter to write own expense', async () => {
+      mockGetSession.mockResolvedValue({
+        user: { id: USER_MEMBER_A_OKA },
+      });
+      const { requireExpenseAccess } = await import('@/lib/auth/guards');
+      const r = await requireExpenseAccess(EXPENSE_OKA, 'write');
+      expect(r.expense.id).toBe(EXPENSE_OKA);
+    });
+  });
 });
