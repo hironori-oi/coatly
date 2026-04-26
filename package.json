@@ -13,11 +13,11 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "db:seed:e2e": "tsx --env-file=.env.local scripts/seed-e2e.ts",
-    "db:seed:managers": "tsx --env-file=.env.local scripts/seed-managers.ts",
+    "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
+    "db:seed:e2e": "tsx --env-file-if-exists=.env.local scripts/seed-e2e.ts",
+    "db:seed:managers": "tsx --env-file-if-exists=.env.local scripts/seed-managers.ts",
     "email:dev": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails --out emails/build"
   },
@@ -70,6 +70,6 @@
     "vitest": "^2.1.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
