@@ -63,6 +63,9 @@ export function KpiCard({
 
   React.useEffect(() => {
     const reduced = prefersReducedMotion();
+    // value 変更時に done を false に戻して count-up を再開させる意図的な動作。
+    // 同 effect 内で完結し cascading render は発生しない。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDone(false);
     if (reduced) {
       motionValue.set(value);

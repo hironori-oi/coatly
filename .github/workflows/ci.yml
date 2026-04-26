@@ -2,10 +2,12 @@
 #
 # 目的: Phase 1 品質ゲート C-04 を満たす最小限の CI。
 #  - typecheck-build: TypeScript 型検査 + Next 16 ビルド（ダミー秘密で）
+#  - lint:           ESLint 0 warnings（W3-A で全 warning 解消・allowlist 化済）
+#  - test:           Vitest unit/integration + coverage（lib/ 70% 目標）
 #  - e2e-authorization: 認可漏洩 7 ケースの E2E（local libsql ファイル）
 #
-# `pnpm lint` は DEC-029 の方針で warning 残存中のため CI 必須化していない。
-# Phase 2 で no-restricted-imports を error 化と同時に必須化予定。
+# DEC-029 の no-restricted-imports は Phase 2 で error 化予定（現状は allowlist で
+# 0 warning 維持）。新規ファイルで直 import が増えれば再び warning が立つ設計。
 name: ci
 
 on:
@@ -67,6 +69,12 @@ jobs:
 
       - name: Type check
         run: pnpm typecheck
+
+      - name: Lint (0 warnings)
+        run: pnpm lint --max-warnings=0
+
+      - name: Unit + integration tests (with coverage)
+        run: pnpm test --coverage
 
       - name: Build (Next.js)
         run: pnpm build

@@ -10,6 +10,7 @@
  * ここに到達するのは「想定外の internal error」のみ。
  */
 import * as React from 'react';
+import Link from 'next/link';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
 
@@ -49,7 +50,7 @@ export default function Error({
           再試行
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <a href="/">トップへ戻る</a>
+          <Link href="/">トップへ戻る</Link>
         </Button>
       </div>
     </div>

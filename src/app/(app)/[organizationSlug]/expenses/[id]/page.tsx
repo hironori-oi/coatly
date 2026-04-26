@@ -274,12 +274,19 @@ export default async function ExpenseDetailPage({
                           PDF を開く
                         </a>
                       ) : (
-                         
                         <a
                           href={a.url}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
+                          {/*
+                           * R2 の TTL=60s 署名付き URL を直接 src にするため
+                           * next/image (Vercel Image Optimization) は使えない。
+                           * loader を自前で書く案もあるが、署名 URL が短命で
+                           * loader 経由の cache が無意味なので生 <img> を採用。
+                           * security-baseline §7 / dev-technical-spec-v2 §5.3。
+                           */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={a.url}
                             alt={a.fileName}

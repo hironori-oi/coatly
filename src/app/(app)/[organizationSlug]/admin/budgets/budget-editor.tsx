@@ -55,8 +55,11 @@ export function BudgetEditor({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Dialog open 時に入力欄をリセットする意図的な setState。
+  // open transition の度にフォーム初期値を currentAmount に同期する必要がある。
   React.useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAmount(currentAmount !== null ? String(currentAmount) : '');
       setError(null);
     }

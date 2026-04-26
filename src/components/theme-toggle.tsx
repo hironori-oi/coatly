@@ -28,6 +28,9 @@ const LABEL: Record<ThemeName, string> = {
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  // next-themes 公式の hydration-safe パターン。SSR / client で theme が
+  // 一致しないため初回 render 後に有効化する必要がある。
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => setMounted(true), []);
 
   const current: ThemeName = mounted

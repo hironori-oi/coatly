@@ -94,8 +94,10 @@ function InviteButton({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Dialog open 時に招待フォームをリセットする意図的な setState。
   React.useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEmail('');
       setRole('member');
       setGroupId('');
