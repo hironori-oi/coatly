@@ -61,6 +61,32 @@ export const auth = betterAuth({
     requireEmailVerification: false, // 招待制のため verify 済み扱い
     autoSignIn: true,
   },
+  /**
+   * Brute-force 対策の rate limit。
+   *
+   * - storage: 'memory'（in-memory / 単一インスタンス前提。MVP では Vercel
+   *   serverless が水平スケールしてもログインは特定ユーザに集中するため
+   *   インスタンスごとに 5/min でも十分な抑止力。Phase 2 で
+   *   secondary-storage（Upstash 等）に切替予定）
+   * - 既定: 60 秒 window で 100 req（その他のエンドポイント）
+   * - customRules で `/sign-in/email` のみ 5/min/IP に強化（DEC-NEW: brute-force 対策）
+   * - 6 回目以降は 429 + JSON `{ message: 'Too many requests' }`
+   *
+   * 注: customRules の key は base path（'/api/auth' プレフィックス無し）。
+   * 1.6.x では path は '/sign-in/email' 形式で指定する。
+   *
+   * 注: enabled の既定は production のみだが、テストや local stg でも
+   * brute-force 抑止を働かせたいので明示 true にする。
+   */
+  rateLimit: {
+    enabled: true,
+    storage: 'memory',
+    window: 60,
+    max: 100,
+    customRules: {
+      '/sign-in/email': { window: 60, max: 5 },
+    },
+  },
   session: {
     cookieCache: { enabled: true, maxAge: 5 * 60 },
     expiresIn: 60 * 60 * 24 * 30, // 30 日
