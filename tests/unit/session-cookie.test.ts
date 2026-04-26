@@ -15,9 +15,27 @@ function makeReq(cookies: Record<string, string>): NextRequest {
 }
 
 describe('SESSION_COOKIE_NAMES', () => {
-  it('contains better-auth and legacy names', () => {
+  it('contains better-auth and legacy names (no prefix)', () => {
     expect(SESSION_COOKIE_NAMES).toContain('better-auth.session_token');
     expect(SESSION_COOKIE_NAMES).toContain('session_token');
+  });
+
+  it('contains __Secure- prefixed names (production https)', () => {
+    expect(SESSION_COOKIE_NAMES).toContain(
+      '__Secure-better-auth.session_token',
+    );
+    expect(SESSION_COOKIE_NAMES).toContain('__Secure-session_token');
+  });
+
+  it('contains __Host- prefixed names (host-only mode)', () => {
+    expect(SESSION_COOKIE_NAMES).toContain(
+      '__Host-better-auth.session_token',
+    );
+    expect(SESSION_COOKIE_NAMES).toContain('__Host-session_token');
+  });
+
+  it('has 6 candidate names total (2 base × 3 prefix)', () => {
+    expect(SESSION_COOKIE_NAMES.length).toBe(6);
   });
 });
 
@@ -55,5 +73,27 @@ describe('getSessionCookie', () => {
     expect(
       await getSessionCookie(makeReq({ 'better-auth.session_token': '' })),
     ).toBeNull();
+  });
+
+  it('detects __Secure- prefixed cookie in production', async () => {
+    expect(
+      await getSessionCookie(
+        makeReq({ '__Secure-better-auth.session_token': 'prod-token' }),
+      ),
+    ).toBe('prod-token');
+  });
+
+  it('detects __Host- prefixed cookie', async () => {
+    expect(
+      await getSessionCookie(
+        makeReq({ '__Host-better-auth.session_token': 'host-only' }),
+      ),
+    ).toBe('host-only');
+  });
+
+  it('detects __Secure- prefixed legacy session_token', async () => {
+    expect(
+      await getSessionCookie(makeReq({ '__Secure-session_token': 'legacy-prod' })),
+    ).toBe('legacy-prod');
   });
 });
