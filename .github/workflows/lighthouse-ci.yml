@@ -1,0 +1,76 @@
+# Lighthouse CI
+#
+# 目的: Vercel Preview / Production の主要ルートで Lighthouse 4 カテゴリの
+# しきい値（Perf>=0.85, A11y>=0.95, BP>=0.90, SEO>=0.90）を維持する。
+#
+# 動作:
+#  1. Vercel preview の deploy 完了を `wait-for-vercel-preview` で待つ
+#  2. `treosh/lighthouse-ci-action` で 5 ルートを 3 回ずつ計測
+#  3. assertion 結果を PR にコメント
+#
+# 必要 Secret:
+#   - VERCEL_TOKEN: Vercel API トークン（preview URL 取得用）
+#   - LHCI_GITHUB_APP_TOKEN: Lighthouse CI GitHub App のトークン（PR コメント用 / 任意）
+#
+# しきい値は lighthouserc.json 側で管理。
+name: lighthouse-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Wait for Vercel preview deployment
+        id: vercel
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 600
+          check_interval: 10
+
+      - name: Install Lighthouse CI
+        run: pnpm add -g @lhci/cli@0.14.x
+
+      - name: Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: |
+          BASE_URL="${{ steps.vercel.outputs.url }}"
+          if [ -z "$BASE_URL" ]; then
+            echo "Vercel preview URL not detected. Falling back to production."
+            BASE_URL="https://coatly-mu.vercel.app"
+          fi
+          echo "Lighthouse target base: $BASE_URL"
+          lhci autorun \
+            --config=./lighthouserc.json \
+            --collect.url="$BASE_URL/" \
+            --collect.url="$BASE_URL/login" \
+            --collect.url="$BASE_URL/coatly-tennis/dashboard" \
+            --collect.url="$BASE_URL/coatly-tennis/expenses" \
+            --collect.url="$BASE_URL/privacy"
