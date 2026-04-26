@@ -60,7 +60,13 @@ export async function loginViaUI(page: Page, email: string): Promise<void> {
   await page.getByLabel('パスワード').fill(E2E_PASSWORD);
   await page.getByRole('button', { name: /^ログイン$/ }).click();
   // ダッシュボード遷移を待機 (root → /[org]/dashboard へ redirect)
-  await page.waitForURL(/\/dashboard$/, { timeout: 15_000 });
+  // CI 上の cold start + dashboard SSR 初回が遅いことがあるため timeout を広げる。
+  // waitUntil: 'load' のままだと streaming 中の早期解決でタイミング差が出るため
+  // 明示的に load イベント完了まで待つ。
+  await page.waitForURL(/\/dashboard$/, {
+    timeout: 30_000,
+    waitUntil: 'load',
+  });
 }
 
 /**

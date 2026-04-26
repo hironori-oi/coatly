@@ -12,7 +12,7 @@
  */
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { forbidden, notFound, unauthorized } from 'next/navigation';
 import { db } from '@/lib/db/client';
 import { organizations } from '@/lib/db/schema';
 import {
@@ -65,10 +65,13 @@ export default async function OrganizationLayout({
   const authResult = await loadAuthContext(org.id);
   if ('error' in authResult) {
     if (authResult.error === 'unauthorized') {
-      redirect(`/login?next=/${organizationSlug}/dashboard`);
+      // 401: middleware がほぼ防ぐが念のため
+      unauthorized();
     }
-    // forbidden = 別組織の slug を踏んだ等
-    notFound();
+    // 403: 別組織の slug を踏んだ等。
+    // notFound() は nested layout 起点だと streaming 開始後で 200 のまま帰ってしまう。
+    // forbidden() は authInterrupts 有効時に 403 + forbidden.tsx を確実に返す。
+    forbidden();
   }
 
   const ctx = authResult;

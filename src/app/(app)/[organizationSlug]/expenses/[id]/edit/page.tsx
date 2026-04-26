@@ -6,7 +6,7 @@
  * - 既存添付一覧 + 共有 ExpenseForm（mode='edit'）を表示
  */
 import { eq, asc } from 'drizzle-orm';
-import { notFound, redirect } from 'next/navigation';
+import { forbidden, notFound, redirect, unauthorized } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db/client';
 import {
@@ -40,17 +40,20 @@ export default async function EditExpensePage({
     ctx = result.ctx;
   } catch (err) {
     if (err instanceof AuthError) {
-      if (err.status === 401)
-        redirect(`/login?next=/${organizationSlug}/expenses/${id}/edit`);
-      notFound();
+      // 401: middleware がほぼ防ぐが念のため
+      if (err.status === 401) unauthorized();
+      // 403: 他人の draft を踏んだ等
+      forbidden();
     }
+    // expense そのものが存在しない場合は本物の 404
     if (err && (err as { name?: string }).name === 'NotFoundError') notFound();
     throw err;
   }
 
-  // 本人のみ編集可能
+  // 本人のみ編集可能（manager/admin の write は requireExpenseAccess で許可済みだが、
+  // 編集 UI は本人のみに限定する設計）
   if (expense.userId !== ctx.user.id) {
-    notFound();
+    forbidden();
   }
 
   // 編集可能な status のみ

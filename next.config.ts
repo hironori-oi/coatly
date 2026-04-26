@@ -51,6 +51,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
+    // forbidden() / unauthorized() を next/navigation から呼べるようにする (Next 16+).
+    // nested layout で notFound() を呼んでも streaming 開始後は 200 のまま帰ってしまう問題を
+    // 回避するために必須。詳細: DEC-041 参照。
+    authInterrupts: true,
     serverActions: {
       allowedOrigins: [
         'coatly.vercel.app',

@@ -4,10 +4,11 @@
  * 親 layout (organizations/[organizationSlug]/layout.tsx) は member も通すため、
  * /admin/* 配下では追加で owner/admin のみ許可する必要がある。
  *
- * 不正アクセス時は notFound() で 404 を返す（403 のリーク防止）。
+ * 不正アクセス時は forbidden() で 403 を返す（authInterrupts 有効）。
+ * 組織自体が存在しない場合のみ notFound() で 404。
  */
 import { eq } from 'drizzle-orm';
-import { notFound, redirect } from 'next/navigation';
+import { forbidden, notFound, unauthorized } from 'next/navigation';
 import { db } from '@/lib/db/client';
 import { organizations } from '@/lib/db/schema';
 import { requireOrganizationRole } from '@/lib/auth/guards';
@@ -34,10 +35,14 @@ export default async function AdminLayout({
   } catch (e) {
     if (e instanceof AuthError) {
       if (e.status === 401) {
-        redirect(`/login?next=/${organizationSlug}/admin/overview`);
+        // 未ログイン: middleware がほぼ防ぐが念のため /login へ
+        unauthorized();
       }
-      // 403 = member 等が踏んだ → 404 (リーク防止)
-      notFound();
+      // 403 = member 等が踏んだ
+      // Next 16 の notFound() は nested layout 起点だと streaming 開始後に
+      // 呼ばれて 200 のまま帰ってしまう（status code が確定済）。
+      // forbidden() は authInterrupts 有効時に 403 + forbidden.tsx を確実に返す。
+      forbidden();
     }
     throw e;
   }

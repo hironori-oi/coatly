@@ -7,7 +7,7 @@
  * - manager (該当 group) or admin/owner かつ status=submitted → 承認 / 差戻
  */
 import { eq, asc } from 'drizzle-orm';
-import { notFound, redirect } from 'next/navigation';
+import { forbidden, notFound, unauthorized } from 'next/navigation';
 import Link from 'next/link';
 import {
   CalendarIcon,
@@ -103,10 +103,12 @@ export default async function ExpenseDetailPage({
     canApprove = (isAdmin || isManager) && !isOwner;
   } catch (err) {
     if (err instanceof AuthError) {
-      if (err.status === 401)
-        redirect(`/login?next=/${organizationSlug}/expenses/${id}`);
-      notFound();
+      // 401: middleware がほぼ防ぐが念のため
+      if (err.status === 401) unauthorized();
+      // 403: 他県 member が別 group の expense URL を直叩き等
+      forbidden();
     }
+    // expense そのものが存在しない場合は本物の 404
     if (err && (err as { name?: string }).name === 'NotFoundError') notFound();
     throw err;
   }
