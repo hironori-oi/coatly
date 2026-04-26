@@ -1,0 +1,115 @@
+# Mozilla HTTP Observatory check
+#
+# 目的: 公開ドメイン（coatly-mu.vercel.app）のセキュリティヘッダ品質を
+# 継続的に監査する。CSP / HSTS / X-Frame-Options 等の劣化を即検知する。
+#
+# 動作:
+#   1. Mozilla HTTP Observatory v2 API に scan を要求
+#   2. score / grade を取得
+#   3. 設定したしきい値を下回ったら fail
+#
+# しきい値（最初は warning レベルから運用開始）:
+#   - WARN_GRADE = B-（55+）  fail にせず log のみ
+#   - FAIL_GRADE = C+（45+ 未満）  fail させる（ヘッダの大幅劣化）
+#
+# 段階的にしきい値を引き上げる予定（Phase 2 で A-）。
+#
+# Trigger: 週 1 cron（月曜 09:00 JST = 00:00 UTC）+ workflow_dispatch
+name: observatory
+
+on:
+  schedule:
+    # 月曜 00:00 UTC = 09:00 JST
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Host to scan (default: coatly-mu.vercel.app)'
+        required: false
+        default: 'coatly-mu.vercel.app'
+
+jobs:
+  scan:
+    name: Mozilla Observatory scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve target host
+        id: target
+        run: |
+          HOST="${{ github.event.inputs.host }}"
+          if [ -z "$HOST" ]; then
+            HOST="coatly-mu.vercel.app"
+          fi
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "Target: $HOST"
+
+      - name: Trigger Observatory scan
+        id: scan
+        env:
+          HOST: ${{ steps.target.outputs.host }}
+        run: |
+          set -euo pipefail
+          # v2 API はサーバ側で結果をキャッシュするため、まず POST で scan を要求する
+          RESP=$(curl -fsS -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${HOST}")
+          echo "Initial response: $RESP"
+
+          GRADE=$(echo "$RESP" | jq -r '.grade // empty')
+          SCORE=$(echo "$RESP" | jq -r '.score // empty')
+
+          # 同期的に返って来ない場合は数秒間 polling する
+          for i in 1 2 3 4 5 6; do
+            if [ -n "$GRADE" ] && [ -n "$SCORE" ]; then break; fi
+            sleep 5
+            RESP=$(curl -fsS "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${HOST}")
+            GRADE=$(echo "$RESP" | jq -r '.grade // empty')
+            SCORE=$(echo "$RESP" | jq -r '.score // empty')
+            echo "polling[$i] grade=$GRADE score=$SCORE"
+          done
+
+          if [ -z "$GRADE" ] || [ -z "$SCORE" ]; then
+            echo "Failed to obtain Observatory grade/score" >&2
+            echo "$RESP" >&2
+            exit 2
+          fi
+
+          echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Observatory::host=$HOST grade=$GRADE score=$SCORE"
+
+      - name: Enforce minimum grade
+        env:
+          GRADE: ${{ steps.scan.outputs.grade }}
+          SCORE: ${{ steps.scan.outputs.score }}
+        run: |
+          set -e
+          # grade を数値スコアに正規化（A+=14 .. F=0）
+          case "$GRADE" in
+            "A+") RANK=14 ;;
+            "A")  RANK=13 ;;
+            "A-") RANK=12 ;;
+            "B+") RANK=11 ;;
+            "B")  RANK=10 ;;
+            "B-") RANK=9 ;;
+            "C+") RANK=8 ;;
+            "C")  RANK=7 ;;
+            "C-") RANK=6 ;;
+            "D+") RANK=5 ;;
+            "D")  RANK=4 ;;
+            "D-") RANK=3 ;;
+            "F")  RANK=0 ;;
+            *)    RANK=-1 ;;
+          esac
+
+          # 警告ライン: B-（rank 9）未満は warning notice
+          if [ "$RANK" -lt 9 ]; then
+            echo "::warning title=Observatory::grade=$GRADE が B- 未満です（score=$SCORE）。security headers を再点検してください。"
+          fi
+
+          # 失敗ライン: C+（rank 8）未満は fail（C / C- / D+ 以下）
+          if [ "$RANK" -lt 8 ]; then
+            echo "::error title=Observatory::grade=$GRADE は許容下限 C+ を下回りました。"
+            exit 1
+          fi
+
+          echo "Observatory grade=$GRADE score=$SCORE — passed."
